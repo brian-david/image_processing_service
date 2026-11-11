@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+coverage/
+
+# Environment and secrets (commit .env.example instead)
+.env
+.env.*
+!.env.example
+
+# Local data (MinIO / Postgres volumes)
+.data/
+minio-data/
+pgdata/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Claude Code local settings
+.claude/settings.local.json
