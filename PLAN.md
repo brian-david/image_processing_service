@@ -5,12 +5,12 @@ Spec: https://roadmap.sh/projects/image-processing-service
 ## Stack (decided)
 - TypeScript + Node, Fastify (decided: less plumbing for validation, multipart, rate limiting; Express was the alternative)
 - Image processing: `sharp`
-- Storage: MinIO locally via Docker (S3 API, `@aws-sdk/client-s3`)
+- Storage: MinIO locally via Docker (S3 API, `@aws-sdk/client-s3`); decided: worth learning the object-storage pattern even though a local folder would also work
 - DB: Postgres (decided; reason: recommended, and for this project it is interchangeable with MySQL, so it was not a deciding factor), run in a container via OrbStack + docker compose; data kept in a local `.data/` folder
-- Query layer: still open (raw `pg` / Kysely / Drizzle / Prisma)
-- Auth: JWT + argon2/bcrypt
-- Validation: zod
-- Tests: vitest + supertest/inject
+- Query layer: Prisma (decided; ORM that generates typed queries and manages migrations from a `schema.prisma` file)
+- Auth: JWT via `@fastify/jwt`; password hashing with `argon2` (decided: modern standard; bcrypt is the fallback if the native install gives trouble)
+- Validation: zod via `fastify-type-provider-zod` (decided; chosen over joi/TypeBox for TypeScript type inference from schemas)
+- Tests: vitest + Fastify `app.inject` (decided; Jest-like API, less TypeScript setup). Slice tests that touch the DB use a real Postgres test database, reset between tests
 
 ## Decisions to make yourself (Slice 0 homework)
 Write one or two sentences for each. These are the point of the exercise.
