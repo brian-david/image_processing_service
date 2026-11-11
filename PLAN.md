@@ -3,10 +3,11 @@
 Spec: https://roadmap.sh/projects/image-processing-service
 
 ## Stack (decided)
-- TypeScript + Node, Fastify (or Express; pick one in Slice 1)
+- TypeScript + Node, Fastify (decided: less plumbing for validation, multipart, rate limiting; Express was the alternative)
 - Image processing: `sharp`
 - Storage: MinIO locally via Docker (S3 API, `@aws-sdk/client-s3`)
-- DB: Postgres (suggested; you confirm) + a query layer (Drizzle/Prisma/Kysely, your call)
+- DB: Postgres (decided; reason: recommended, and for this project it is interchangeable with MySQL, so it was not a deciding factor), run in a container via OrbStack + docker compose; data kept in a local `.data/` folder
+- Query layer: still open (raw `pg` / Kysely / Drizzle / Prisma)
 - Auth: JWT + argon2/bcrypt
 - Validation: zod
 - Tests: vitest + supertest/inject
