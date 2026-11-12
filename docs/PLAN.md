@@ -28,10 +28,34 @@ This document says **what we are building and in what order**. For **why** each 
 - Uploads: max 10 MB, JPEG/PNG/WebP only, verified by having `sharp` decode the bytes.
 - JWT secret lives in an uncommitted `.env` (placeholder in `.env.example`); tokens last 1 hour; no refresh tokens.
 
-## Data model (draft, still to review)
-- `users(id, username unique, password_hash, created_at)`
-- `images(id, user_id, parent_image_id null, storage_key, mime_type, width, height, size_bytes, transform_hash null, created_at)`
-  - `parent_image_id` + `transform_hash` identify a derived image, so the same transform of the same original can be reused (cache).
+## Data model
+IDs are UUIDs. Reasons: [D-19 to D-22 in DECISIONS.md](DECISIONS.md).
+
+**`users`**
+| Column | Notes |
+|---|---|
+| `id` | UUID, primary key |
+| `username` | unique |
+| `password_hash` | argon2 hash, never the password |
+| `created_at` | |
+
+**`images`** (uploads and transformed images share one table)
+| Column | Notes |
+|---|---|
+| `id` | UUID, primary key |
+| `user_id` | foreign key to `users.id`; the owner |
+| `parent_image_id` | foreign key to `images.id`; empty for an upload, set for a transformed image |
+| `original_filename` | name the user uploaded the file under (added; easy to drop) |
+| `storage_key` | the file's key in MinIO |
+| `mime_type`, `width`, `height`, `size_bytes` | metadata for the list endpoint |
+| `transformations` | JSON of the settings applied; empty for an upload |
+| `transform_hash` | fingerprint of parent + settings; empty for an upload |
+| `created_at` | |
+
+Rules:
+- Each transform creates a **new row**; no row is overwritten. History is the chain of parent links (for example 1 -> 2 -> 4).
+- A repeated identical transform (same parent, same hash) returns the existing image instead of making a duplicate.
+- Transformed files are kept; nothing is deleted automatically (D-19).
 
 ## API contract (from the spec)
 | Method | Path | Auth | Notes |
@@ -44,7 +68,7 @@ This document says **what we are building and in what order**. For **why** each 
 | GET | /images?page=&limit= | yes | paginated list with metadata |
 
 ## Slices (check off as you go)
-- [x] 0. Stack and design decisions made (data model still to review)
+- [x] 0. Stack, design decisions and data model decided
 - [ ] 1. Skeleton: server, config/env validation, DB connection, docker-compose (Postgres + MinIO), health check, first test
 - [ ] 2. Auth: register, login, JWT middleware, tests
 - [ ] 3. Upload + list: multipart, validation, store in MinIO, metadata in DB, pagination

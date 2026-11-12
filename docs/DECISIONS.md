@@ -124,7 +124,7 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 - **Options:** new derived record keeping the original; overwrite the original; return bytes only and store nothing.
 - **Decision:** New derived record that points to its parent. The original is never changed.
 - **Why:** Non-destructive, allows many transforms of one original, and a hash of the transform parameters makes caching possible (the same transform returns the stored result).
-- **Trade-offs:** Uses more storage and needs `parent_image_id` and `transform_hash` columns. Derived images need a lifecycle policy later (cleanup) if storage grows.
+- **Trade-offs:** Uses more storage and needs `parent_image_id` and `transform_hash` columns. Storage grows with every distinct transform, not just every upload. See D-19 for how that growth is handled (it refines this entry).
 
 ### D-15: Which endpoints require a JWT
 - **Date:** 2026-11-11
@@ -152,6 +152,53 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 
 ---
 
+## Data model
+
+### D-19: Keep every transformed file; never auto-delete (refines D-14)
+- **Date:** 2026-11-12
+- **Context:** Every transform creates a new image (D-14), so storage grows with each one. The question was whether transformed files should be permanent or disposable.
+- **Options:**
+  1. Keep every transformed file permanently.
+  2. Keep the database record and its settings permanently, but treat the *file* as a cache: delete rarely used files and regenerate them on demand.
+  3. Delete derived images after a fixed time (e.g. 30 days).
+- **Decision:** Option 1. Keep every transformed file. Nothing is deleted automatically.
+- **Why:**
+  - Option 3 was rejected. A transformed image is the user's work (for example an exact crop), not a throwaway cache entry. Silently deleting it after 30 days, so the user returns to find it gone, is a bad outcome. Having the original does not fix this, because the valuable part is the edit.
+  - Option 2 is a valid design, because storing the settings means the user never has to redo an edit. But it is a cost comparison: storing a file costs a little every month, regenerating costs CPU every time it is requested. Rarely requested files are cheaper to regenerate, popular ones cheaper to keep. At this project's scale both costs are negligible, so cost does not decide it.
+  - With cost negligible, complexity decides. Option 2 needs a background eviction job, regenerate-on-miss logic (including two requests regenerating at once), slower first requests after eviction, and chain handling (regenerating a derived-of-derived image needs its parent's file). Option 1 needs none of that.
+  - Identical transforms are not duplicated, because `transform_hash` finds the existing result (D-20).
+- **Trade-offs:** Storage is unbounded per user in this version. If growth becomes a real cost, the planned answer is a per-user quota with a clear error, plus a user-controlled `DELETE /images/:id` endpoint (not in the spec; the user decides what to free). Deleting a parent raises a question to settle at that point: what happens to images derived from it.
+- **What would change this:** real storage cost at scale, or wanting to build caching as a learning bonus. Option 2 can then be added without changing the tables, because the settings and parent link are already stored (see D-21).
+- **Process note:** the reasoning pattern used here: list options, find the costs, check which costs matter at this scale, let the remaining difference (complexity) decide, confirm it is reversible, and write it down.
+
+### D-20: One `images` table for uploads and transformed images
+- **Date:** 2026-11-12
+- **Context:** Should original uploads and transformed results live in one table or two?
+- **Options:** one `images` table where a transformed image has a `parent_image_id`; two tables (`images` for uploads, a separate table for transformed results).
+- **Decision:** One table. An upload has an empty `parent_image_id`; a transformed image points to its parent.
+- **Why:** A transformed result is, as far as the rest of the system is concerned, the same kind of thing as an upload: a file in storage with a format, a size and an owner. `GET /images/:id`, listing and the ownership check work identically for both. Transforming a transformed image (a chain such as 1 -> 2 -> 4) works naturally because any image can be a parent.
+- **Trade-offs:** `parent_image_id`, `transform_hash` and `transformations` are empty for uploads. Two tables would be explicit but would duplicate storage-key, format and size columns and make "the parent could be either table" awkward. Two tables become the better design only if the two kinds start to differ in columns or rules.
+- **How transforms are recorded over time:** each transform is its own new row; no row is ever overwritten. History is the chain of parent links.
+
+### D-21: Store the transformation settings and a hash on derived images
+- **Date:** 2026-11-12
+- **Context:** What identifies a transformed image and records what was done?
+- **Decision:** Derived images store two things:
+  - `transform_hash`: a fingerprint of the parent image plus the settings. It answers "has this exact transform already been done?", so a repeat request returns the existing image instead of recomputing and duplicating it. This is the caching bonus from the spec.
+  - `transformations`: the settings as readable JSON (for example `{"resize":{"width":200},"format":"webp"}`). It is needed to compute the hash, makes the list endpoint and debugging understandable ("this is a 200px WebP copy"), and as a side effect would allow evict-and-regenerate later.
+- **Why:** The settings column is not extra insurance: it earns its place for the reasons above. The ability to add regeneration later is a free side effect, not a reason to build anything now.
+- **Trade-offs:** One extra JSON column and one hash column. Dropping `transformations` would still work for caching (the hash alone is enough) but would make rows opaque to a human.
+
+### D-22: UUID identifiers
+- **Date:** 2026-11-12
+- **Context:** Users and images need unique IDs that appear in URLs such as `/images/:id`.
+- **Options:** UUID; auto-increment integer.
+- **Decision:** UUID for `users.id` and `images.id`.
+- **Why:** Unguessable, so a URL doesn't reveal the next ID or how many images exist. This also supports the privacy decision (D-13), because even though non-owners get 404, IDs can't be enumerated. They can also be generated in application code without a database round-trip.
+- **Trade-offs:** Larger than integers and not human-readable. Slightly less efficient to index than sequential numbers, which is irrelevant at this scale.
+
+---
+
 ## Process
 
 ### D-18: Repository and workflow
@@ -164,5 +211,6 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 ---
 
 ## Open items
-- Data model: review the draft `users` and `images` tables against the decisions above, then write the Prisma schema (Slice 1).
+- Write the Prisma schema from the data model in `PLAN.md` (Slice 1).
+- Later, if wanted: per-user quota, `DELETE /images/:id`, and a decision on what deleting a parent image does to its derived images (see D-19).
 - Pick the Fastify and Prisma versions at the start of Slice 1 and check current setup docs, since Prisma's configuration changes between major versions.
