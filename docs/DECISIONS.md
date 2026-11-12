@@ -28,7 +28,7 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 
 ### D-03: Running services: containers via OrbStack + docker compose
 - **Date:** 2026-11-11
-- **Context:** Postgres and MinIO must run locally. Docker Desktop had previously consumed a lot of disk.
+- **Context:** Postgres and an S3-compatible store (RustFS, see D-05) must run locally. Docker Desktop had previously consumed a lot of disk.
 - **Options:** Docker Desktop, OrbStack, installing services directly on macOS.
 - **Decision:** docker compose, run under OrbStack. Service data is kept in a project-local `.data/` folder (git-ignored) so its size is visible and it is deleted with the project.
 - **Why:** OrbStack is lighter than Docker Desktop and uses the same `docker`/`compose` commands. Local data folders avoid hidden disk growth.
@@ -42,13 +42,15 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 - **Why:** Chosen by the owner, who first said "query builder" and then switched to Prisma. No further reason was recorded. Prisma defines tables once in `schema.prisma`, generates typed queries, and manages migrations.
 - **Trade-offs:** Hides more of the SQL than a query builder, so less direct SQL practice and it can be easier to write inefficient queries unnoticed (Prisma can log the SQL to compensate). Adds a generate step and its own schema language. Kysely was the closest alternative.
 
-### D-05: File storage: MinIO (S3-compatible)
-- **Date:** 2026-11-11
+### D-05: File storage: RustFS (S3-compatible)
+- **Date:** 2026-11-11; **revised 2026-11-12** (MinIO replaced by RustFS, see below)
 - **Context:** Image bytes need to live somewhere. The database should hold metadata only.
-- **Options:** a local folder; MinIO; real AWS S3 / Cloudflare R2.
-- **Decision:** MinIO, run locally in a container.
-- **Why:** A local folder would also have worked. MinIO was kept deliberately to learn the object-storage pattern used in production, where servers don't share local disk. Code written with the S3 client moves to real S3 by changing configuration.
-- **Trade-offs:** One more container and more setup than a folder. The learning value is smaller because the S3 SDK is already used at work. MinIO's open-source edition has changed over time; its current licensing and feature state was not verified. Alternatives (e.g. Garage, SeaweedFS) exist if it becomes a problem.
+- **Options:** a local folder; MinIO; RustFS; Garage; SeaweedFS; real AWS S3 / Cloudflare R2.
+- **Decision:** RustFS, run locally in a container, pinned to `rustfs/rustfs:1.0.5`.
+- **Why:** A local folder would also have worked. An S3-compatible server was kept deliberately to learn the object-storage pattern used in production, where servers don't share local disk. Code written with the S3 client moves to real S3 by changing configuration. RustFS was chosen over the other alternatives as described in the comparison articles as the closest drop-in replacement for MinIO, with an Apache-2.0 licence and a built-in web console.
+- **Why MinIO was dropped (2026-11-12):** the assumption behind choosing it expired. When we reached the point of writing its compose config we checked its repository, which carries a "no longer maintained" notice and was archived by its owner on 2026-04-25. The community edition is now distributed as source code only (no pre-built binaries), and its Docker instructions say to build the image yourself. It was therefore not a good dependency for a new project.
+- **Trade-offs:** RustFS is much newer than MinIO, so it has less track record and fewer tutorials. Its docs are not fully consistent and did not state every setting, so the compose config was derived from reading two doc pages and then verified by running it. Its container runs as a non-root user (UID 10001), which can cause permission errors on bind-mounted folders (none occurred here). The image is pinned to a specific version instead of `latest` so it doesn't change unexpectedly.
+- **What would change this:** RustFS proving unreliable, or a project goal to keep things simpler (a local folder behind a storage interface), or moving to real S3 / R2.
 
 ### D-06: Image processing: sharp
 - **Date:** 2026-11-11
@@ -97,6 +99,13 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 - **Decision:** REST, as the spec defines.
 - **Why:** The work is uploads, auth and transforms, which REST handles naturally. GraphQL would add a schema and resolver layer, complicate caching and rate limiting, and make file uploads awkward.
 - **Trade-offs:** Fixed response shapes; clients cannot request only the fields they want.
+
+### D-23: Container image versions are pinned
+- **Date:** 2026-11-12
+- **Context:** `docker-compose.yml` names the images to run. A tag like `latest` can change under you between runs.
+- **Decision:** Pin specific versions: `postgres:17-alpine` and `rustfs/rustfs:1.0.5`.
+- **Why:** Reproducible: the same file gives the same setup next month. Postgres 17 was the newest major version with a confirmed alpine tag when checked. The `-alpine` variant is much smaller, which matters because Docker had previously filled the owner's disk. For Postgres 17 the data folder is mounted at `/var/lib/postgresql/data` (Postgres 18+ uses `/var/lib/postgresql`, so upgrading to 18 means changing the mount).
+- **Trade-offs:** Versions must be bumped by hand. Postgres 18 exists and was not chosen; moving to it later is a deliberate migration, not a one-line change.
 
 ---
 

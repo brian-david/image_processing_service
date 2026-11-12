@@ -17,7 +17,7 @@ This is a practice project built from the [roadmap.sh Image Processing Service](
 | Web framework | Fastify |
 | Database | Postgres (in a container) |
 | Database access | Prisma |
-| File storage | MinIO (S3-compatible) |
+| File storage | RustFS (S3-compatible) |
 | Image processing | sharp |
 | Validation | zod |
 | Auth | argon2 password hashing, JWT via `@fastify/jwt` |
@@ -39,7 +39,7 @@ Images are private to their owner. Transforms never change the original.
 Work is split into slices, each of which works end to end before the next begins:
 
 0. Stack and design decisions (done)
-1. Project skeleton, docker compose (Postgres and MinIO), health check
+1. Project skeleton, docker compose (Postgres and RustFS), health check
 2. Authentication
 3. Upload and list
 4. Retrieve
