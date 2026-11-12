@@ -1,0 +1,32 @@
+{
+	"name": "image_processing_service",
+	"version": "1.0.0",
+	"description": "A backend for uploading, transforming and retrieving images, similar in spirit to Cloudinary. Users register and log in, upload images, apply transformations (resize, crop, rotate, format change, filters), and fetch or list their images.",
+	"main": "dist/server.js",
+	"directories": {
+		"doc": "docs"
+	},
+	"scripts": {
+		"dev": "tsx watch src/server.ts",
+		"build": "tsc -p tsconfig.json",
+		"start": "node dist/server.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/brian-david/image_processing_service.git"
+	},
+	"keywords": [],
+	"type": "module",
+	"bugs": {
+		"url": "https://github.com/brian-david/image_processing_service/issues"
+	},
+	"homepage": "https://github.com/brian-david/image_processing_service#readme",
+	"dependencies": {
+		"fastify": "^5.12.8"
+	},
+	"devDependencies": {
+		"@types/node": "^26.6.6",
+		"tsx": "^4.23.15",
+		"typescript": "^7.0.2"
+	}
+}
