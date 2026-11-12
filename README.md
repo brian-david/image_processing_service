@@ -16,7 +16,7 @@ This is a practice project built from the [roadmap.sh Image Processing Service](
 | Language / runtime | TypeScript on Node |
 | Web framework | Fastify |
 | Database | Postgres (in a container) |
-| Database access | Prisma |
+| Database access | postgres.js with plain SQL migrations |
 | File storage | RustFS (S3-compatible) |
 | Image processing | sharp |
 | Validation | zod |

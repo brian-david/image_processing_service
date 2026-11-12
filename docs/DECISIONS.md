@@ -34,13 +34,14 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 - **Why:** OrbStack is lighter than Docker Desktop and uses the same `docker`/`compose` commands. Local data folders avoid hidden disk growth.
 - **Trade-offs:** On macOS containers run in one lightweight Linux VM under the hood. Two always-available containers use some memory and disk.
 
-### D-04: Database access: Prisma
-- **Date:** 2026-11-11
+### D-04: Database access: postgres.js with plain SQL
+- **Date:** 2026-11-11; **revised 2026-11-12** (Prisma replaced by postgres.js, see below)
 - **Context:** TypeScript must talk to Postgres. Choices range from raw SQL strings to ORMs.
-- **Options:** raw `pg` (what `zaro-backend` uses); query builders (Kysely, Knex); hybrid (Drizzle); ORM (Prisma, TypeORM).
-- **Decision:** Prisma.
-- **Why:** Chosen by the owner, who first said "query builder" and then switched to Prisma. No further reason was recorded. Prisma defines tables once in `schema.prisma`, generates typed queries, and manages migrations.
-- **Trade-offs:** Hides more of the SQL than a query builder, so less direct SQL practice and it can be easier to write inefficient queries unnoticed (Prisma can log the SQL to compensate). Adds a generate step and its own schema language. Kysely was the closest alternative.
+- **Options:** raw drivers (`pg`, `postgres.js`; `pg` is what `zaro-backend` uses); query builders (Kysely, Knex); hybrid (Drizzle); ORM (Prisma, TypeORM).
+- **Decision:** `postgres.js` (npm `postgres`), writing real SQL, with plain `.sql` migration files that create the tables.
+- **Why:** The owner first chose Prisma on recommendation, with no reason of their own recorded. On reaching Slice 1 step 5 they said they did not like it and wanted to interact with SQL directly. A plain driver makes SQL the actual interface, which fits the goal of learning the project end to end. With only two tables the extra manual work is small.
+- **Trade-offs:** Nothing checks query column names before they run, and row types are written by hand. Mitigation: validate rows coming back from the database with zod. Migrations are hand-written `.sql` files run in order by a small runner (chosen in step 5), instead of being generated. Kysely is a possible later step up if typed queries are wanted; it can be added without redoing the migrations.
+- **Superseded choice:** Prisma (schema file, generated typed client, generated migrations). Dropped before any Prisma code was written.
 
 ### D-05: File storage: RustFS (S3-compatible)
 - **Date:** 2026-11-11; **revised 2026-11-12** (MinIO replaced by RustFS, see below)
@@ -220,6 +221,6 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 ---
 
 ## Open items
-- Write the Prisma schema from the data model in `PLAN.md` (Slice 1).
+- Write the first SQL migration from the data model in `PLAN.md` and pick a small migration runner (Slice 1, step 5).
 - Later, if wanted: per-user quota, `DELETE /images/:id`, and a decision on what deleting a parent image does to its derived images (see D-19).
-- Pick the Fastify and Prisma versions at the start of Slice 1 and check current setup docs, since Prisma's configuration changes between major versions.
+- Check the current `postgres` (postgres.js) docs when installing it in step 5 (latest on npm at the time of writing: 4.1.1).

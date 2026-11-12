@@ -12,7 +12,7 @@ This document says **what we are building and in what order**. For **why** each 
 | Language / runtime | TypeScript on Node |
 | Web framework | Fastify |
 | Database | Postgres, in a container (OrbStack + docker compose), data in `.data/` |
-| Database access | Prisma |
+| Database access | `postgres.js` with plain SQL and `.sql` migration files |
 | File storage | RustFS (S3-compatible), locally via docker compose |
 | Image processing | `sharp` |
 | Validation | zod via `fastify-type-provider-zod` |
