@@ -160,6 +160,30 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 - **Why:** Standard approach for a local project. One hour balances risk and convenience without building refresh-token machinery.
 - **Trade-offs:** A stolen token stays valid for up to an hour and can't be revoked. Users log in again hourly. Production would use a secrets service (like AWS Secrets Manager at work) and likely refresh tokens.
 
+### D-24: Talking to object storage: AWS SDK, wrapped in one file
+- **Date:** 2026-11-12
+- **Context:** The app needs three storage operations (put, get, delete an image). The owner asked whether the official AWS SDK is overkill for that.
+- **Options:** `@aws-sdk/client-s3` (the standard); a lightweight S3 client (for example `s3mini`, or `aws4fetch` for request signing); hand-written HTTP with request signing.
+- **Decision:** Use `@aws-sdk/client-s3`, and keep **all** storage code in a single file, `src/storage.ts`, exposing only the operations the app needs. The rest of the app never imports the SDK directly.
+- **Why:** The hard part of S3 is signing every request correctly (AWS Signature V4); the SDK does it, plus streaming and retries, and is the best documented option. The owner likes wrapping a dependency in one file, which also makes the library cheap to replace.
+- **Trade-offs:** Heavy for three operations (about 18 MB on disk for the `@aws-sdk` and `@smithy` packages, measured 2026-11-12, out of 85 MB in `node_modules`). If it ever feels like too much, only the inside of `storage.ts` changes.
+
+### D-25: What to test: rules that must not silently break
+- **Date:** 2026-11-12
+- **Context:** The owner had little experience with automated tests and questioned their value: after a change you check that change by hand and know the unrelated parts are unaffected. The original definition of done asked for one happy-path and one failure-path test per slice.
+- **Options:** test everything; test only the rules whose breakage would be silent and serious; test nothing and check by hand.
+- **Decision:** Test the rules that must not silently break (authentication required, images private to their owner, upload limits and file-type checks). Every slice gets at least one happy-path test. Nothing else needs a test just to have one.
+- **Why:** The risk in a manual check is the part you do not think to look at. Example: while adding `?format=webp` to `GET /images/:id` you could drop the ownership check; format conversion would still work, so nothing looks wrong, but privacy (D-13) would be broken. Tests earn their place where a mistake is silent and serious. A second Slice 1 test (an unknown URL returns 404) was written and then dropped, because it could only fail if Fastify's built-in behaviour changed, which protects nothing.
+- **Trade-offs:** Less coverage than a strict "test everything" approach, so some regressions will be found by hand or not at all. Tests live in `test/`, outside `src/`, so they are not part of the build. Tools: vitest 5.1.0 with Fastify's `app.inject` (no real server needed).
+
+### D-26: Setup steps done by hand for now (tables and bucket)
+- **Date:** 2026-11-12
+- **Context:** Two one-off setup steps are needed after the containers start: create the database tables (`migrations/001_init.sql`) and create the `images` storage bucket. Both could be automated (a migration runner script, an `ensureBucket()` function on server start).
+- **Options:** automate both now; do both by hand and document them; automate only one.
+- **Decision:** Both by hand, documented in the README. The tables are created by feeding the SQL file to `psql` in the Postgres container. The bucket is created in the RustFS web console.
+- **Why:** Each is run once and the code to automate it is more than the job needs today. A migration runner solves a problem the project does not have yet (many migrations over time), and the real storage code is written in Slice 3, where it has a job to do (see D-24).
+- **Trade-offs:** A fresh machine, or a wiped `.data/` folder, needs the two manual steps repeated. A runner (and possibly `ensureBucket`) should be added when a second migration appears, or when tests need a clean database and bucket automatically. Also learned while setting this up: Postgres and RustFS read their credentials from the environment only when first created (Postgres) or at start (RustFS), and Docker Compose parses `.env` differently from Node (for example a `"` in a value). Keep `.env` values to letters, numbers, dashes and underscores.
+
 ---
 
 ## Data model
@@ -221,6 +245,6 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 ---
 
 ## Open items
-- Write the first SQL migration from the data model in `PLAN.md` and pick a small migration runner (Slice 1, step 5).
+- Add a migration runner and automatic bucket creation when a second migration is needed or tests need a clean database (see D-26).
+- Write `src/storage.ts` (put, get, delete image) in Slice 3 (see D-24).
 - Later, if wanted: per-user quota, `DELETE /images/:id`, and a decision on what deleting a parent image does to its derived images (see D-19).
-- Check the current `postgres` (postgres.js) docs when installing it in step 5 (latest on npm at the time of writing: 4.1.1).

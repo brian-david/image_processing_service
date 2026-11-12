@@ -69,7 +69,7 @@ Rules:
 
 ## Slices (check off as you go)
 - [x] 0. Stack, design decisions and data model decided
-- [ ] 1. Skeleton: server, config/env validation, DB connection, docker-compose (Postgres + RustFS), health check, first test
+- [x] 1. Skeleton: server, config/env validation, DB connection, docker-compose (Postgres + RustFS), health check, first test
 - [ ] 2. Auth: register, login, JWT middleware, tests
 - [ ] 3. Upload + list: multipart, validation, store in RustFS, metadata in DB, pagination
 - [ ] 4. Retrieve: stream from storage, ownership check
@@ -79,5 +79,5 @@ Rules:
 
 ## Definition of done for each slice
 - Works end to end via curl
-- At least one happy-path and one failure-path test
+- At least one happy-path test, plus tests for any rule that must not silently break (auth, privacy, upload limits). Not every endpoint needs a test for every failure; see [D-25](DECISIONS.md)
 - Any decision that changed is updated in [DECISIONS.md](DECISIONS.md)

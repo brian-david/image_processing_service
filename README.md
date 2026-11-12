@@ -4,7 +4,7 @@ A backend for uploading, transforming and retrieving images, similar in spirit t
 
 This is a practice project built from the [roadmap.sh Image Processing Service](https://roadmap.sh/projects/image-processing-service) brief. A goal of the project is to practise **planning and implementing** a backend in small, working slices, so the reasoning behind each choice is written down.
 
-> **Status:** planning is complete and implementation has not started. There is no runnable code yet. The sections below describe what is planned.
+> **Status:** Slice 1 (the skeleton) is done: a Fastify server with a `/health` endpoint, validated configuration, Postgres and RustFS running under docker compose, the `users` and `images` tables, and a first test. Authentication, upload and transforms are not built yet, so the API below is the plan, not what exists.
 
 ## Documentation
 - [docs/PLAN.md](docs/PLAN.md): what is being built and in what order (stack, rules, data model, API contract, slices).
@@ -39,7 +39,7 @@ Images are private to their owner. Transforms never change the original.
 Work is split into slices, each of which works end to end before the next begins:
 
 0. Stack and design decisions (done)
-1. Project skeleton, docker compose (Postgres and RustFS), health check
+1. Project skeleton, docker compose (Postgres and RustFS), health check (done)
 2. Authentication
 3. Upload and list
 4. Retrieve
@@ -50,4 +50,33 @@ Work is split into slices, each of which works end to end before the next begins
 The checklist lives in [docs/PLAN.md](docs/PLAN.md).
 
 ## Running it
-Setup and run instructions will be added in Slice 1, once there is something to run.
+You need Node, npm, and a container engine (Docker or OrbStack).
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Create your settings file and fill it in (see the comments in `.env.example`):
+   ```bash
+   cp .env.example .env
+   ```
+3. Start Postgres and RustFS:
+   ```bash
+   docker compose up -d
+   ```
+4. Create the database tables (once):
+   ```bash
+   docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < migrations/001_init.sql
+   ```
+5. Create the storage bucket (once): open the RustFS console at http://localhost:9001, log in with `RUSTFS_ACCESS_KEY` and `RUSTFS_SECRET_KEY` from your `.env`, and create a bucket named `images` (the `S3_BUCKET` value).
+6. Start the server and check it:
+   ```bash
+   npm run dev
+   curl http://localhost:3000/health
+   ```
+7. Run the tests:
+   ```bash
+   npm test
+   ```
+
+Postgres only reads `POSTGRES_PASSWORD` the first time it creates its data folder (`.data/postgres`). If you change the password afterwards, delete that folder (this erases the database) or change it inside Postgres with `ALTER USER`. The reasoning behind the setup choices is in [docs/DECISIONS.md](docs/DECISIONS.md) (D-26).
