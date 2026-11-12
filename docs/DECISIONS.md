@@ -245,6 +245,7 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 ---
 
 ## Open items
+- Slice 2: decide whether `/health` stays public. D-15 lists only `/register` and `/login` as open, but health checks (Docker, hosting platforms) send no token. The `/health` test will fail if the auth check covers it.
 - Add a migration runner and automatic bucket creation when a second migration is needed or tests need a clean database (see D-26).
 - Write `src/storage.ts` (put, get, delete image) in Slice 3 (see D-24).
 - Later, if wanted: per-user quota, `DELETE /images/:id`, and a decision on what deleting a parent image does to its derived images (see D-19).
