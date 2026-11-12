@@ -14,12 +14,12 @@ Spec: https://roadmap.sh/projects/image-processing-service
 
 ## Decisions to make yourself (Slice 0 homework)
 Write one or two sentences for each. These are the point of the exercise.
-1. `GET /images/:id` format selection: query param (`?format=webp`)? Accept header? Only via transform?
-2. Ownership: are images private to the uploader? What does another user get (403 or 404)?
-3. Transform result: new record or overwrite? (Suggested: new derived record, original untouched.)
-4. Which endpoints need a JWT? (Suggested: all except `/register` and `/login`.)
-5. Upload limits: max size, allowed MIME types, how you verify the file really is an image.
-6. Where does the JWT secret live, and how long do tokens last?
+1. `GET /images/:id` format selection: DECIDED: query param `?format=webp`; omit it to get the stored format (explicit, easy to test by hand)
+2. Ownership: DECIDED: images are private to the uploader; anyone else gets 404 (does not reveal that the ID exists)
+3. Transform result: DECIDED: new derived record pointing to its parent; original is never changed (enables re-transforming and caching by transform hash)
+4. Which endpoints need a JWT? DECIDED: all except `/register` and `/login`
+5. Upload limits: DECIDED: max 10 MB; allow-list JPEG, PNG, WebP; verify by having sharp decode the bytes (not by file name or claimed type)
+6. JWT secret and lifetime: DECIDED: secret in an uncommitted `.env` with a placeholder `.env.example` committed (repo is public); single token per login, expires after 1 hour, no refresh tokens
 
 ## Data model (draft, challenge it)
 - users(id, username unique, password_hash, created_at)
@@ -37,7 +37,7 @@ Write one or two sentences for each. These are the point of the exercise.
 | GET | /images?page=&limit= | yes | paginated list with metadata |
 
 ## Slices (check off as you go)
-- [ ] 0. Answer the decisions above; sketch the schema
+- [x] 0. Answer the decisions above (done); schema still to sketch
 - [ ] 1. Skeleton: server, config/env validation, DB connection, docker-compose (Postgres + MinIO), health check, first test
 - [ ] 2. Auth: register, login, JWT middleware, tests
 - [ ] 3. Upload + list: multipart, validation, store in MinIO, metadata in DB, pagination
