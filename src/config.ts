@@ -19,6 +19,7 @@ const EnvSchema = z.object({
 	S3_BUCKET: z.string().min(1).default('images'),
 	RUSTFS_ACCESS_KEY: z.string().min(1),
 	RUSTFS_SECRET_KEY: z.string().min(1),
+	JWT_SECRET: z.string().min(32),
 });
 
 const result = EnvSchema.safeParse(process.env);

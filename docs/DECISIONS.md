@@ -137,12 +137,13 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 - **Trade-offs:** Uses more storage and needs `parent_image_id` and `transform_hash` columns. Storage grows with every distinct transform, not just every upload. See D-19 for how that growth is handled (it refines this entry).
 
 ### D-15: Which endpoints require a JWT
-- **Date:** 2026-11-11
+- **Date:** 2026-11-11; **revised 2026-11-13** (`/health` added as public, see below)
 - **Context:** The spec says "secure endpoints" without listing them.
 - **Options:** everything except register/login; also allow public `GET /images/:id`.
-- **Decision:** Everything except `/register` and `/login`.
+- **Decision:** Everything except `/register`, `/login` and `/health`.
 - **Why:** Consistent with private images (D-13); every image request is tied to a user.
 - **Trade-offs:** Images can't be embedded publicly without login. Making some public later would need a per-image flag and revisiting D-13.
+- **Revision (2026-11-13):** `/health` is public too. Its only job is to say the app is alive; it returns no user data, and the things that call it (Docker, hosting platforms, monitoring) send no token. Protecting it would make a working app look dead to them. Every route on the public list is reachable by anyone, so the list stays short and each entry has a reason.
 
 ### D-16: Upload limits and file checks
 - **Date:** 2026-11-11
@@ -183,6 +184,14 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 - **Decision:** Both by hand, documented in the README. The tables are created by feeding the SQL file to `psql` in the Postgres container. The bucket is created in the RustFS web console.
 - **Why:** Each is run once and the code to automate it is more than the job needs today. A migration runner solves a problem the project does not have yet (many migrations over time), and the real storage code is written in Slice 3, where it has a job to do (see D-24).
 - **Trade-offs:** A fresh machine, or a wiped `.data/` folder, needs the two manual steps repeated. A runner (and possibly `ensureBucket`) should be added when a second migration appears, or when tests need a clean database and bucket automatically. Also learned while setting this up: Postgres and RustFS read their credentials from the environment only when first created (Postgres) or at start (RustFS), and Docker Compose parses `.env` differently from Node (for example a `"` in a value). Keep `.env` values to letters, numbers, dashes and underscores.
+
+### D-27: Validate request bodies with zod directly in the handler
+- **Date:** 2026-11-13
+- **Context:** The plan said zod via `fastify-type-provider-zod`, which connects zod schemas to Fastify's built-in validation. Its compatibility with zod 4 and Fastify 5 was never checked.
+- **Options:** `fastify-type-provider-zod`; Fastify's own JSON Schema validation; call zod's `safeParse` at the top of each handler.
+- **Decision:** Call `safeParse` in the handler and reply `400` with `z.prettifyError(...)` when it fails. First used in `POST /register` (`src/auth.ts`).
+- **Why:** Same zod pattern the owner already wrote in `config.ts`, nothing extra to install or verify, and the check is visible in the route itself instead of hidden in route options.
+- **Trade-offs:** A few repeated lines per route, and Fastify doesn't know the body's shape, so there is no automatic API documentation. The type provider can be adopted later if that matters.
 
 ---
 
@@ -245,7 +254,6 @@ Entries marked *accepted on recommendation* mean the choice was suggested by Cla
 ---
 
 ## Open items
-- Slice 2: decide whether `/health` stays public. D-15 lists only `/register` and `/login` as open, but health checks (Docker, hosting platforms) send no token. The `/health` test will fail if the auth check covers it.
 - Add a migration runner and automatic bucket creation when a second migration is needed or tests need a clean database (see D-26).
 - Write `src/storage.ts` (put, get, delete image) in Slice 3 (see D-24).
 - Later, if wanted: per-user quota, `DELETE /images/:id`, and a decision on what deleting a parent image does to its derived images (see D-19).

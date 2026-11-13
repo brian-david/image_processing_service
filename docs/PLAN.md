@@ -15,7 +15,7 @@ This document says **what we are building and in what order**. For **why** each 
 | Database access | `postgres.js` with plain SQL and `.sql` migration files |
 | File storage | RustFS (S3-compatible), locally via docker compose |
 | Image processing | `sharp` |
-| Validation | zod via `fastify-type-provider-zod` |
+| Validation | zod, called directly in route handlers (`safeParse`) |
 | Password hashing | `argon2` (bcrypt as fallback) |
 | Login tokens | JWT via `@fastify/jwt` |
 | Tests | vitest + Fastify `app.inject`, real Postgres test database reset between tests |
@@ -24,7 +24,7 @@ This document says **what we are building and in what order**. For **why** each 
 - Retrieval format: `GET /images/:id?format=webp`; omit `format` to get the stored format.
 - Images are private to their owner; anyone else gets 404.
 - A transform creates a new image record linked to its parent; the original is never changed.
-- Every endpoint needs a JWT except `/register` and `/login`.
+- Every endpoint needs a JWT except `/register`, `/login` and `/health`.
 - Uploads: max 10 MB, JPEG/PNG/WebP only, verified by having `sharp` decode the bytes.
 - JWT secret lives in an uncommitted `.env` (placeholder in `.env.example`); tokens last 1 hour; no refresh tokens.
 
